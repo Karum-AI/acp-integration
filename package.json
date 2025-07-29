@@ -1,0 +1,32 @@
+{
+  "name": "acp-integration",
+  "version": "0.1.0",
+  "description": "A Node.js/TypeScript integration with the Agent Commerce Protocol (ACP) from Virtuals Protocol",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "pnpm build && node dist/main.js",
+    "dev": "tsc -w",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Karum",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Karum-AI/acp-integration.git"
+  },
+  "homepage": "https://github.com/Karum-AI/acp-integration#readme",
+  "packageManager": "pnpm@10.11.0",
+  "engines": {
+    "node": ">=21.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.1",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@virtuals-protocol/acp-node": "0.1.0-beta.15",
+    "dotenv": "^16.5.0",
+    "openai": "^5.8.2"
+  }
+}

@@ -1,0 +1,81 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy to Server
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.11.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build project
+        run: pnpm build
+
+      - name: Create .env file (if needed)
+        run: |
+          echo "BUYER_ENTITY_ID=${{ secrets.BUYER_ENTITY_ID }}" > .env
+          echo "BUYER_AGENT_WALLET_ADDRESS=${{ secrets.BUYER_AGENT_WALLET_ADDRESS }}" >> .env
+          echo "WHITELISTED_WALLET_PRIVATE_KEY=${{ secrets.WHITELISTED_WALLET_PRIVATE_KEY }}" >> .env
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.HOST }} >> ~/.ssh/known_hosts
+
+      - name: Create deployment directory
+        run: |
+          ssh ${{ secrets.USER }}@${{ secrets.HOST }} "mkdir -p /root/acp-integration"
+
+      - name: Prepare deployment files
+        run: |
+          mkdir -p deploy
+          cp -r dist deploy/
+          cp package.json deploy/
+          cp pnpm-lock.yaml deploy/
+          cp .env deploy/
+
+      - name: Deploy built files
+        run: |
+          rsync -avz --delete deploy/ ${{ secrets.USER }}@${{ secrets.HOST }}:/root/acp-integration/
+
+      - name: Install production dependencies and restart app
+        run: |
+          ssh ${{ secrets.USER }}@${{ secrets.HOST }} << 'EOF'
+            cd /root/acp-integration
+            export NVM_DIR="$HOME/.nvm"
+            source "$NVM_DIR/nvm.sh"
+            nvm use --lts
+            
+            # Install pnpm if not available
+            if ! command -v pnpm &> /dev/null; then
+              npm install -g pnpm@10.11.0
+            fi
+            
+            # Install only production dependencies
+            pnpm install --prod --frozen-lockfile
+            
+            # Restart or start the application
+            pm2 restart acp-buyer || pm2 start dist/main.js --name acp-buyer
+            pm2 save
+          EOF
